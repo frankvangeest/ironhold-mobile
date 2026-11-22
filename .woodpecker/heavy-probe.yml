@@ -1,0 +1,30 @@
+# Workflow 2 of 2: harmless probe on the `heavy` agent (LXC 116 on pmve02). Proves routing, the wake dependency and the
+# resources of the build host. Deploys and publishes nothing. Replace with the real build once a spike exists.
+#
+# `labels: label: heavy` is what routes this to the heavy agent; that agent has the MANDATORY label `!label=heavy`, so
+# workflows without it (site deploys etc.) never run on pmve02. `depends_on: [wake]` waits for wake.yml to succeed.
+when:
+  event: [push, manual]
+  branch: main
+
+labels:
+  label: heavy
+
+depends_on:
+  - wake
+
+clone:
+  git:
+    image: woodpeckerci/plugin-git
+    settings:
+      skip_verify: true
+
+steps:
+  probe:
+    image: rust:1-bookworm
+    commands:
+      - echo "running on $(hostname)"
+      - cargo --version
+      - nproc
+      - free -m
+      - df -h /

@@ -1,0 +1,29 @@
+# Workflow 1 of 2: wake pmve02 so the `heavy` agent can take the next workflow.
+# Runs on the always-on `light` agent. Plan and runbook: homelab repo, docs/runbooks.md -> "Waking pmve02 from the pipeline".
+#
+# The SSH key can only trigger /usr/local/sbin/wake-pmve02.sh on pmve (forced command, `restrict`); the word after the host
+# is ignored. pmve's host key is pinned below (public data), so a fake host on the LAN cannot receive the key.
+# The script returns once pmve02 answers SSH and Proxmox sees the node online (cold start took 48 s on 2026-11-22),
+# or does nothing if pmve02 is already up. It never shuts pmve02 down.
+when:
+  event: [push, manual]
+  branch: main
+
+clone:
+  git:
+    image: woodpeckerci/plugin-git
+    settings:
+      skip_verify: true
+
+steps:
+  wake-pmve02:
+    image: alpine:3
+    environment:
+      PMVE02_WAKE_KEY:
+        from_secret: pmve02_wake_key
+    commands:
+      - apk add --no-cache openssh-client
+      - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+      - echo "$PMVE02_WAKE_KEY" > ~/.ssh/wake_key && chmod 600 ~/.ssh/wake_key
+      - echo "192.168.178.61 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDfYb7qY0xOJQmLsMnQacqI0FXo28I17UN/ZVro9GFjE" > ~/.ssh/known_hosts
+      - ssh -i ~/.ssh/wake_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes root@192.168.178.61 wake
