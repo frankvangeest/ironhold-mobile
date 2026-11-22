@@ -28,3 +28,11 @@ steps:
       - nproc
       - free -m
       - df -h /
+      # Cache proof: the agent mounts three named volumes into every step. First run must say MISS, every later run HIT
+      # with the timestamp of the previous run. (Marker files only, nothing is built.)
+      - mount | grep -E "/usr/local/cargo/(registry|git)|/cache/target" | awk '{print "mounted:", $3}'
+      - mkdir -p /cache/target/probe /usr/local/cargo/registry
+      - if [ -f /cache/target/probe/marker ]; then echo "CACHE HIT, previous run was at $(cat /cache/target/probe/marker)"; else echo "CACHE MISS (first run)"; fi
+      - date -u > /cache/target/probe/marker
+      - if [ -f /usr/local/cargo/registry/probe-marker ]; then echo "REGISTRY HIT"; else echo "REGISTRY MISS (first run)"; fi
+      - date -u > /usr/local/cargo/registry/probe-marker
